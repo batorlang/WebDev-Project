@@ -4,7 +4,13 @@ const searchButton = document.getElementById("search_button");
 const resultsList = document.getElementById("results");
 const nowSection = document.getElementById("now");
 const gpsButton = document.getElementById("gps_button");
+const unitSelector = document.getElementById("units");
+let currentCelsius = null;
+let currentWind = null;
+let currentName = "";
 
+
+//functions
 async function citySearch() {
     const name = searchInput.value.trim();
     if (name === "") return; //empty input handled.
@@ -33,8 +39,10 @@ async function currentWeatherDisplay(place) {
     console.log(data);
 
     nowSection.innerHTML =
-        "<h2>" + place.name + "<h2>" + "<p>" + data.current.temperature_2m + " °C</p>" + "<p>" + data.current.wind_speed_10m + " km/h<p>";
-
+        currentCelsius = data.current.temperature_2m;
+        currentWind = data.current.wind_speed_10m;
+        currentName = place.name;
+        showNow();
 }
 
 function useGPS() {
@@ -54,7 +62,37 @@ function successfulGPS(position) {
     currentWeatherDisplay(place);
 }
 
+function tempConverter(celsius) {
+    const unit = unitSelector.value;
+    if (unit === "F") {
+        return celsius * 9/5 + 32; //calculation is according to this site: https://www.calculatorsoup.com/calculators/conversions/celsius-to-fahrenheit.php
+    }
+
+    if (unit ==="K") {
+        return celsius + 273,15; //calculation source: https://www.calculatorsoup.com/calculators/conversions/celsius-to-kelvin.php
+    }
+
+    return celsius; //Base case where the temperature is Celsius by default.
+}
+
+function showNow() {
+    if (currentCelsius === null) return;
+    let label = "°C";
+    if (unitSelector.value === "K") {
+        label = "K";
+    }
+    if (unitSelector.value === "F") {
+        label = "°F";
+    }
+
+    const temperature = tempConverter(currentCelsius);
+
+    nowSection.innerHTML =
+        "<h2>" + currentName + "</h2>" + "<p>" + temperature.toFixed(1) + " " + label + "</p>" + "<p>Wind: " + currentWind + " km/h</p>";
+}
+
 
 //button functionalities
 searchButton.addEventListener('click' , citySearch);
 gpsButton.addEventListener('click', useGPS);
+unitSelector.addEventListener('change', showNow);

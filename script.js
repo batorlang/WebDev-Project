@@ -8,6 +8,9 @@ const unitSelector = document.getElementById("units");
 let currentCelsius = null;
 let currentWind = null;
 let currentName = "";
+const hourlySec = document.getElementById("hourly");
+let hTimes = [];
+let hCelsius = [];
 
 
 //functions
@@ -28,12 +31,12 @@ async function citySearch() {
     }
 
     const place = data.results[0]; //This is the best match for the city search
-    currentWeatherDisplay(place);
+    weatherDisplay(place);
 
 }
 
-async function currentWeatherDisplay(place) {
-    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m";
+async function weatherDisplay(place) {
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m&hourly=temperature_2m&timezone=auto";
     const res = await fetch(url);
     const data = await res.json();
     console.log(data);
@@ -42,7 +45,17 @@ async function currentWeatherDisplay(place) {
         currentCelsius = data.current.temperature_2m;
         currentWind = data.current.wind_speed_10m;
         currentName = place.name;
+        hTimes = [];
+        hCelsius = [];
+        //This loop fills in the two arrays with the timestamps with their temperature data accordingly. 
+        for (let i = 0; i < data.hourly.time.length; i++) {
+            if (data.hourly.time[i] > data.current.time && hTimes.length < 24) {
+                hTimes.push(data.hourly.time[i]);
+                hCelsius.push(data.hourly.temperature_2m[i]);
+            }
+        }
         showNow();
+        showHourly();
 }
 
 function useGPS() {
@@ -59,7 +72,7 @@ function successfulGPS(position) {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude
     };
-    currentWeatherDisplay(place);
+    weatherDisplay(place);
 }
 
 function tempConverter(celsius) {
@@ -76,14 +89,7 @@ function tempConverter(celsius) {
 }
 
 function showNow() {
-    if (currentCelsius === null) return;
-    let label = "°C";
-    if (unitSelector.value === "K") {
-        label = "K";
-    }
-    if (unitSelector.value === "F") {
-        label = "°F";
-    }
+    let label = getLabels();
 
     const temperature = tempConverter(currentCelsius);
 
@@ -91,8 +97,36 @@ function showNow() {
         "<h2>" + currentName + "</h2>" + "<p>" + temperature.toFixed(1) + " " + label + "</p>" + "<p>Wind: " + currentWind + " km/h</p>";
 }
 
+function getLabels() {
+    if (unitSelector.value === "F") {
+        return "°F";
+    }
+    if (unitSelector.value === "K") {
+        return "K";
+    }
+    return "°C";
+}
+
+function showHourly() {
+    let hourlyContent = "";
+    for (let i = 0; i < hTimes.length; i++) {
+        const time = hTimes[i];
+        const temp = tempConverter(hCelsius[i]);
+        hourlyContent += "<div class='hour'>" + time + "<br>" + temp.toFixed(0) + " " + getLabels() + "</div>";
+    }
+
+    hourlySec.innerHTML = hourlyContent;
+}
+
+
+//I needed this function to update the UI every time the temperature units change, so that both the curretn weather section and the hourly section updates at the same time.
+function changeUI() {
+    showNow();
+    showHourly();
+}
+
 
 //button functionalities
 searchButton.addEventListener('click' , citySearch);
 gpsButton.addEventListener('click', useGPS);
-unitSelector.addEventListener('change', showNow);
+unitSelector.addEventListener('change', changeUI);

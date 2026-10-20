@@ -11,6 +11,12 @@ let currentName = "";
 const hourlySec = document.getElementById("hourly");
 let hTimes = [];
 let hCelsius = [];
+const dailySec = document.getElementById("daily");
+let dDates = [];
+let dMax = [];
+let dMin = [];
+
+
 
 
 //functions
@@ -36,7 +42,7 @@ async function citySearch() {
 }
 
 async function weatherDisplay(place) {
-    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m&hourly=temperature_2m&timezone=auto";
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m&hourly=temperature_2m&timezone=auto&daily=temperature_2m_max,temperature_2m_min";
     const res = await fetch(url);
     const data = await res.json();
     console.log(data);
@@ -45,6 +51,8 @@ async function weatherDisplay(place) {
         currentCelsius = data.current.temperature_2m;
         currentWind = data.current.wind_speed_10m;
         currentName = place.name;
+
+        //hourly 
         hTimes = [];
         hCelsius = [];
         //This loop fills in the two arrays with the timestamps with their temperature data accordingly. 
@@ -54,8 +62,14 @@ async function weatherDisplay(place) {
                 hCelsius.push(data.hourly.temperature_2m[i]);
             }
         }
+
+        //daily
+        dDates = data.daily.time;
+        dMax = data.daily.temperature_2m_max;
+        dMin = data.daily.temperature_2m_min;
         showNow();
         showHourly();
+        showDaily();
 }
 
 function useGPS() {
@@ -123,6 +137,22 @@ function showHourly() {
 function changeUI() {
     showNow();
     showHourly();
+    showDaily();
+
+}
+
+function showDaily() {
+    let dailyContent = "";
+    for (let i = 0; i < dDates.length; i++) {
+        const date = new Date(dDates[i]);
+        const dayText = date.toLocaleDateString("en-GB", {weekday: "short"});
+        const max = tempConverter(dMax[i]);
+        const min = tempConverter(dMin[i]);
+
+        dailyContent += "<div class='day'>" + dayText + " " + min.toFixed(0) + "/" + max.toFixed(0) + " " + getLabels() + "</div>";
+    }
+
+    dailySec.innerHTML = dailyContent;
 }
 
 

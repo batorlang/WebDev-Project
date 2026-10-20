@@ -15,6 +15,9 @@ const dailySec = document.getElementById("daily");
 let dDates = [];
 let dMax = [];
 let dMin = [];
+let currentWCode = 0;
+let dWCodes = [];
+let hWCodes = [];
 
 
 
@@ -42,7 +45,7 @@ async function citySearch() {
 }
 
 async function weatherDisplay(place) {
-    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m&hourly=temperature_2m&timezone=auto&daily=temperature_2m_max,temperature_2m_min";
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m,weather_code&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto";
     const res = await fetch(url);
     const data = await res.json();
     console.log(data);
@@ -51,15 +54,19 @@ async function weatherDisplay(place) {
         currentCelsius = data.current.temperature_2m;
         currentWind = data.current.wind_speed_10m;
         currentName = place.name;
+        currentWCode = data.current.weather_code;
 
         //hourly 
         hTimes = [];
         hCelsius = [];
+        hWCodes = [];
+        
         //This loop fills in the two arrays with the timestamps with their temperature data accordingly. 
         for (let i = 0; i < data.hourly.time.length; i++) {
             if (data.hourly.time[i] > data.current.time && hTimes.length < 24) {
                 hTimes.push(data.hourly.time[i]);
                 hCelsius.push(data.hourly.temperature_2m[i]);
+                hWCodes.push(data.hourly.weather_code[i]);
             }
         }
 
@@ -67,6 +74,7 @@ async function weatherDisplay(place) {
         dDates = data.daily.time;
         dMax = data.daily.temperature_2m_max;
         dMin = data.daily.temperature_2m_min;
+        dWCodes = data.daily.weather_code;
         showNow();
         showHourly();
         showDaily();
@@ -96,7 +104,7 @@ function tempConverter(celsius) {
     }
 
     if (unit ==="K") {
-        return celsius + 273,15; //calculation source: https://www.calculatorsoup.com/calculators/conversions/celsius-to-kelvin.php
+        return celsius + 273.15; //calculation source: https://www.calculatorsoup.com/calculators/conversions/celsius-to-kelvin.php
     }
 
     return celsius; //Base case where the temperature is Celsius by default.
@@ -108,7 +116,7 @@ function showNow() {
     const temperature = tempConverter(currentCelsius);
 
     nowSection.innerHTML =
-        "<h2>" + currentName + "</h2>" + "<p>" + temperature.toFixed(1) + " " + label + "</p>" + "<p>Wind: " + currentWind + " km/h</p>";
+        "<h2>" + currentName + "</h2>" + "<p>" + getWeatherIcon(currentWCode) + temperature.toFixed(1) + " " + label + "</p>" + "<p>Wind: " + currentWind + " km/h</p>";
 }
 
 function getLabels() {
@@ -126,7 +134,7 @@ function showHourly() {
     for (let i = 0; i < hTimes.length; i++) {
         const time = hTimes[i];
         const temp = tempConverter(hCelsius[i]);
-        hourlyContent += "<div class='hour'>" + time + "<br>" + temp.toFixed(0) + " " + getLabels() + "</div>";
+        hourlyContent += "<div class='hour'>" + time + "<br>" + getWeatherIcon(hWCodes[i]) + temp.toFixed(0) + " " + getLabels() + "</div>";
     }
 
     hourlySec.innerHTML = hourlyContent;
@@ -149,10 +157,25 @@ function showDaily() {
         const max = tempConverter(dMax[i]);
         const min = tempConverter(dMin[i]);
 
-        dailyContent += "<div class='day'>" + dayText + " " + min.toFixed(0) + "/" + max.toFixed(0) + " " + getLabels() + "</div>";
+        dailyContent += "<div class='day'>" + dayText + getWeatherIcon(dWCodes[i]) + " " + min.toFixed(0) + "/" + max.toFixed(0) + " " + getLabels() + "</div>";
     }
 
     dailySec.innerHTML = dailyContent;
+}
+
+//Emojis have been selected by the WMO interprettion codes.
+function getWeatherIcon(code) {
+    if (code === 0) return "☀️"; //Clear sky
+    if (code === 1) return "🌤️"; //Mainly clear
+    if (code === 2) return "🌥️"; //Partly cloudy
+    if (code === 3) return "☁️"; //Overcast
+    if (code <= 48) return "🌫️"; //Fog
+    if (code <= 57) return "🌦️"; //Drizzle or lighter rain
+    if (code <= 67) return "🌧️"; //Rain
+    if (code <= 77) return "🌨️"; //Snow 
+    if (code <= 82) return "☔"; //Heavy rain
+    if (code <= 86) return "❄️"; //Snow shovers and freezin cold
+    return "⛈️" //Tunderstorm
 }
 
 

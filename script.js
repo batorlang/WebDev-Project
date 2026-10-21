@@ -200,7 +200,7 @@ function loadFavs() {
 function showFavs() {
     let options = "<option value=''>Favorites</option>";
     for (let option = 0; option < favs.length; option++) {
-        options += "<option value='" + option + "'>" + favs[i].name + "</option>";
+        options += "<option value='" + option + "'>" + favs[option].name + "</option>";
     }
     favSelector.innerHTML = options;
 }

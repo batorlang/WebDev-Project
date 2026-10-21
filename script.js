@@ -5,19 +5,25 @@ const resultsList = document.getElementById("results");
 const nowSection = document.getElementById("now");
 const gpsButton = document.getElementById("gps_button");
 const unitSelector = document.getElementById("units");
+const hourlySec = document.getElementById("hourly");
+const dailySec = document.getElementById("daily");
+const favSelector = document.getElementById("favorites");
+const favButton = document.getElementById("add_favorite");
+
+//global variables
 let currentCelsius = null;
 let currentWind = null;
 let currentName = "";
-const hourlySec = document.getElementById("hourly");
 let hTimes = [];
 let hCelsius = [];
-const dailySec = document.getElementById("daily");
 let dDates = [];
 let dMax = [];
 let dMin = [];
 let currentWCode = 0;
 let dWCodes = [];
 let hWCodes = [];
+let currentPlace = null;
+let favs = [];
 
 
 
@@ -49,6 +55,7 @@ async function weatherDisplay(place) {
     const res = await fetch(url);
     const data = await res.json();
     console.log(data);
+    currentPlace = place; //This is needed to save the currently displayed place, so saving iot is easier. By saving the place object, also the gps set place can be saved, with the rigth coordinates.
 
     nowSection.innerHTML =
         currentCelsius = data.current.temperature_2m;
@@ -178,8 +185,51 @@ function getWeatherIcon(code) {
     return "⛈️" //Tunderstorm
 }
 
+function saveFavs() {
+    //localStorage is the default storage of a browser, that survives a page reload, so fav locations can be saved for later use.
+    localStorage.setItem("favorites", JSON.stringify(favs));
+}
+
+function loadFavs() {
+    const saved = localStorage.getItem("favorites");
+    if (saved != null) { //bugfix: needed a null check for the favs array
+        favs = JSON.parse(saved);
+    }
+}
+
+function showFavs() {
+    let options = "<option value=''>Favorites</option>";
+    for (let option = 0; option < favs.length; option++) {
+        options += "<option value='" + option + "'>" + favs[i].name + "</option>";
+    }
+    favSelector.innerHTML = options;
+}
+
+function addFavs() {
+    if (currentPlace === null) return; //bugfix: nothing is on the screen
+    for (let i = 0; i < favs.length; i++) {
+        if (favs[i].name === currentPlace.name) return;
+    }
+    favs.push({
+        name: currentPlace.name,
+        latitude: currentPlace.latitude,
+        longitude: currentPlace.longitude
+    });
+    saveFavs();
+    showFavs();
+}
+
+function chooseFav() {
+    weatherDisplay(favs[favSelector.value]);
+}
+
+
+loadFavs();
+showFavs();
 
 //button functionalities
 searchButton.addEventListener('click' , citySearch);
 gpsButton.addEventListener('click', useGPS);
 unitSelector.addEventListener('change', changeUI);
+favButton.addEventListener('click', addFavs);
+favSelector.addEventListener('change', chooseFav);

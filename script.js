@@ -10,6 +10,7 @@ const dailySec = document.getElementById("daily");
 const favSelector = document.getElementById("favorites");
 const favButton = document.getElementById("add_favorite");
 const compSec = document.getElementById("compare");
+const auroraSec = document.getElementById("aurora");
 
 //global variables
 let currentCelsius = null;
@@ -31,6 +32,10 @@ let chart = null;
 let isDay = 1;
 const OWM_KEY = "bc06f39f79b2f609ef1c789e7661b593"; //Paste Open Weather API Key here
 let owmCelsius = [];
+let hCloud = [];
+let hIsDay = [];
+let sunsetTime = "";
+let maxKP = null;
 
 
 
@@ -58,7 +63,7 @@ async function citySearch() {
 }
 
 async function weatherDisplay(place) {
-    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m,weather_code,is_day&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto";
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m,weather_code,is_day&hourly=temperature_2m,weather_code,cloud_cover,is_day&daily=temperature_2m_max,temperature_2m_min,weather_code,sunset&timezone=auto";
     const res = await fetch(url);
     const data = await res.json();
     console.log(data);
@@ -75,12 +80,17 @@ async function weatherDisplay(place) {
         //hourly 
         hTimes = [];
         hCelsius = [];
-        hWCodes = []; 
+        hWCodes = [];
+        hCloud = [];
+        hIsDay = [];
         for (let i = 0; i < data.hourly.time.length; i++) {
             if (data.hourly.time[i] > data.current.time && hTimes.length < 24) {
                 hTimes.push(data.hourly.time[i]);
                 hCelsius.push(data.hourly.temperature_2m[i]);
                 hWCodes.push(data.hourly.weather_code[i]);
+                hCloud.push(data.hourly.cloud_cover[i]);
+                hIsDay.push(data.hourly.is_day[i]);
+
             }
         }
 
@@ -89,14 +99,16 @@ async function weatherDisplay(place) {
         dMax = data.daily.temperature_2m_max;
         dMin = data.daily.temperature_2m_min;
         dWCodes = data.daily.weather_code;
+        sunsetTime = data.daily.sunset[0];
         await loadMetNorway(place);
         await loadOW(place);
+        await loadKP();
         showNow();
         theme();
         showHourly();
         showDaily();
-        showComp();
         drawChart();
+        showAurora();
 }
 
 function useGPS() {
@@ -185,7 +197,6 @@ function changeUI() {
     showNow();
     showHourly();
     showDaily();
-    showComp();
     drawChart();
 
 }
@@ -284,7 +295,7 @@ async function loadMetNorway(place) {
     }
 
 }
-
+//This function is a helper funtion for me to see what data has arrived from all the providers at once, so the chart validity could be checked and the chart also be debugged.
 function showComp() {
     let content = "";
     for (let i = 0; i < hTimes.length; i++) {
@@ -388,6 +399,89 @@ async function loadOW(place) {
         owmCelsius.push(found);
     }
 }
+
+async function loadKP() {
+    maxKP = null;
+    const url = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json";
+    const res = await fetch(url);
+    const data = await res.json();
+    console.log(data);
+    const now = Date.now();
+    const threeHours = 3 * 60 * 60 * 1000;
+    const limit = now + 24 * 60 * 60 * 1000;
+    for (let i = 0; i < data.length; i++) {
+            const time = Date.parse(data[i].time_tag.replace(" ", "T") + "Z");
+            const kp = Number(data[i].kp);
+
+            if (time >= now - threeHours && time <= limit) {
+                if (maxKP === null || kp > maxKP) {
+                    maxKP = kp;
+                }
+            }
+    }
+}
+
+function requiredKp(latitude) {
+    const lat = Math.abs(latitude);
+    if (lat >= 67) return 1;
+    if (lat >= 65) return 2;
+    if (lat >= 62) return 3;
+    if (lat >= 60) return 4;
+    if (lat >= 57) return 5;
+    if (lat >= 54) return 6;
+    if (lat >= 50) return 7;
+    if (lat >= 47) return 8;
+    return 9;
+}
+
+function showAurora() {
+    let bestCloud = null;
+    let bestHour = "";
+    for (let i = 0; i < hTimes.length; i++) {
+        if (hIsDay[i] === 0) { // 0 means the sun is down
+            if (bestCloud === null || hCloud[i] < bestCloud) {
+                bestCloud = hCloud[i];
+                bestHour = hTimes[i].slice(11, 16);
+            }
+        }
+    }
+
+    const needed = requiredKp(currentPlace.latitude);
+    let auroraText;
+
+    if (bestCloud === null) {
+        auroraText = "No dark hours in the next period of time.";
+    } else if (maxKP === null) {
+        auroraText = "Geomagnetic data is not available.";
+    } else if (maxKP < needed) {
+        auroraText = "Unlikely: geomagnetic activity is too low for this location.";
+    } else if (bestCloud <= 40) {
+        auroraText = "Good chance! Look at the sky around " + bestHour + "!";
+    } else if (bestCloud <= 70) {
+        auroraText = "Possible, but partly cloudy. Best time: " + bestHour + ".";
+    } else {
+        auroraText = "Activity is high enough, but clouds probably block the view.";
+    }
+
+    let kpText = "no data arrived";
+    if (maxKP !== null) {
+        kpText = maxKP;
+    }
+
+    let cloudText = "no dark hours";
+    if (bestCloud !== null) {
+        cloudText = bestCloud + " %";
+    }
+
+    auroraSec.innerHTML =
+        "<p><strong>" + auroraText + "</strong></p>" +
+        "<p>Sunset today: " + sunsetTime.slice(11, 16) + "</p>" +
+        "<p>Highest Kp in the next 24 h: " + kpText + " (needed here: about " + needed + ")</p>" +
+        "<p>Lowest cloud cover while dark: " + cloudText + "</p>";
+        //NOAA Space Weather Prediction Center provides this data
+}
+
+
 
 
 loadFavs();

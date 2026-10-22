@@ -27,6 +27,7 @@ let currentPlace = null;
 let favs = [];
 let metCelsius = [];
 let utcTime = 0;
+let chart = null;
 
 
 
@@ -91,6 +92,7 @@ async function weatherDisplay(place) {
         showHourly();
         showDaily();
         showComp();
+        drawChart();
 }
 
 function useGPS() {
@@ -160,6 +162,7 @@ function changeUI() {
     showHourly();
     showDaily();
     showComp();
+    drawChart();
 
 }
 
@@ -269,6 +272,40 @@ function showComp() {
         content += "<div>" + hTimes[i] + "Open-Meteo: " + omTemp.toFixed(1) + " " + getLabels() + "   MET Norway: " + metText + "</div>";
     }
     compSec.innerHTML = content;
+}
+
+function drawChart() {
+    const labels = [];
+    const omData = [];
+    const metData = [];
+
+    for (let i = 0; i < hTimes.length; i++) {
+        labels.push(hTimes[i].slice(11, 16));
+        omData.push(tempConverter(hCelsius[i]).toFixed(1));
+        if (metCelsius[i] != null) {
+            metData.push(tempConverter(metCelsius[i]).toFixed(1));
+        } else {
+            metData.push(0);
+        }
+    }
+
+    const datasets = [{name: "Open-Meteo", values: omData}];
+    if (metCelsius.length > 0) {
+        datasets.push({name: "MET Norway", values: metData});
+    }
+    
+    document.getElementById("chart").innerHTML = "";
+    chart = new frappe.Chart("#chart", {
+        title: "Temperature in the next 24 hours (" + getLabels() + ")",
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        type: "line",
+        colors: ["green", "red"],
+        axisOptions: {xIsSeries: true},
+        lineOptions: {hideDots: 0}
+    });
 }
 
 

@@ -29,6 +29,8 @@ let metCelsius = [];
 let utcTime = 0;
 let chart = null;
 let isDay = 1;
+const OWM_KEY = ""; //Paste Open Weather API Key here
+let owmCelsius = [];
 
 
 
@@ -88,6 +90,7 @@ async function weatherDisplay(place) {
         dMin = data.daily.temperature_2m_min;
         dWCodes = data.daily.weather_code;
         await loadMetNorway(place);
+        await loadOW(place);
         showNow();
         theme();
         showHourly();
@@ -148,7 +151,7 @@ function getLabels() {
 function showHourly() {
     let hourlyContent = "";
     for (let i = 0; i < hTimes.length; i++) {
-        const time = hTimes[i];
+        const time = hTimes[i].slice(11,16);
         const temp = tempConverter(hCelsius[i]);
         hourlyContent += "<div class='hour'>" + time + "<br>" + getWeatherIcon(hWCodes[i]) + temp.toFixed(0) + " " + getLabels() + "</div>";
     }
@@ -267,10 +270,14 @@ function showComp() {
     for (let i = 0; i < hTimes.length; i++) {
         const omTemp = tempConverter(hCelsius[i]);
         let metText = "no data arrived";
+        let owmText = "no data arrived";
         if (metCelsius[i] != null) {
             metText = tempConverter(metCelsius[i]).toFixed(1) + " " + getLabels();
         }
-        content += "<div>" + hTimes[i] + "Open-Meteo: " + omTemp.toFixed(1) + " " + getLabels() + "   MET Norway: " + metText + "</div>";
+        if (owmCelsius[i] != null) {
+            owmText = tempConverter(owmCelsius[i]).toFixed(1) + " " + getLabels();
+        }
+        content += "<div>" + hTimes[i] + " Open-Meteo: " + omTemp.toFixed(1) + " " + getLabels() + " MET Norway: " + metText + " OpenWeatherMap: " + owmText + "</div>";
     }
     compSec.innerHTML = content;
 }
@@ -279,6 +286,7 @@ function drawChart() {
     const labels = [];
     const omData = [];
     const metData = [];
+    const owmData = [];
 
     for (let i = 0; i < hTimes.length; i++) {
         labels.push(hTimes[i].slice(11, 16));
@@ -288,11 +296,20 @@ function drawChart() {
         } else {
             metData.push(omData[i]);
         }
+
+        if (owmCelsius[i] != null) {
+            owmData.push(tempConverter(owmCelsius[i]).toFixed(1));
+        } else {
+            owmData.push(omData[i]);
+        }
     }
 
     const datasets = [{name: "Open-Meteo", values: omData}];
     if (metCelsius.length > 0) {
         datasets.push({name: "MET Norway", values: metData});
+    }
+    if (owmCelsius.length > 0) {
+        datasets.push({name: "OpenWeatherMap", values: owmData});
     }
     
     document.getElementById("chart").innerHTML = "";
@@ -303,7 +320,7 @@ function drawChart() {
             datasets: datasets
         },
         type: "line",
-        colors: ["green", "red"],
+        colors: ["green", "red", "purple"],
         axisOptions: {xIsSeries: true},
         lineOptions: {hideDots: 0}
     });
@@ -319,11 +336,37 @@ function theme() {
         color1 = "hsl(" + hue + ", " + saturation + "%, 55%)";
         color2 = "hsl(" + (hue + 30) + ", " + saturation + "%, 35%)";
     } else {
-        colour1 = "hsl(" + hue + ", 40%, 18%)";
-        colour2 = "hsl(" + hue + ", 50%, 8%)";
+        color1 = "hsl(" + hue + ", 40%, 18%)";
+        color2 = "hsl(" + hue + ", 50%, 8%)";
     }
     document.body.style.setProperty("--background1", color1);
     document.body.style.setProperty("--background2", color2);
+}
+
+async function loadOW(place) {
+    owmCelsius = [];
+    const url = "https://api.openweathermap.org/data/2.5/forecast?lat=" + place.latitude + "&lon=" + place.longitude + "&units=metric&appid=" + OWM_KEY;
+    const res = await fetch(url);
+    const data = await res.json();
+    console.log(data);
+    const lookup = {};
+    //Looks like the same lookup as in the MET Norway load
+    for (let i = 0; i < data.list.length; i++) {
+        const time = data.list[i].dt * 1000;
+        lookup[time] = data.list[i].main.temp;
+    }
+    for (let i = 0; i < hTimes.length; i++) {
+        const hour = Date.parse(hTimes[i]+"Z") - utcTime*1000;
+        let found = null;
+        for (let j = 0; j <= 2; j++) {
+            const guess = hour - j*60*60*1000; //This is supposed to be going backwards in time one hour at an iteration to find the right time
+            if (lookup[guess] !== undefined) {
+                found = lookup[guess];
+                break;
+            }
+        }
+        owmCelsius.push(found);
+    }
 }
 
 

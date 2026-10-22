@@ -29,7 +29,7 @@ let metCelsius = [];
 let utcTime = 0;
 let chart = null;
 let isDay = 1;
-const OWM_KEY = ""; //Paste Open Weather API Key here
+const OWM_KEY = "bc06f39f79b2f609ef1c789e7661b593"; //Paste Open Weather API Key here
 let owmCelsius = [];
 
 
@@ -107,9 +107,29 @@ function errorGPS() {
     nowSection.innerHTML = "<p>Could not get your location. Please give permission to browser accessing your location for this function.</p>";
 }
 
-function successfulGPS(position) {
+async function successfulGPS(position) {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    let placeName = "My location"; //showing that lookup failed
+    try {
+        const url = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=en";
+        const res = await fetch(url);
+        const data = await res.json();
+        console.log(data);
+        let found = data.city;
+        if (!found) found = data.locality;
+        if (!found) found = data.principalSubdivision;
+        if (found) {
+            placeName = "My Location: " + found;
+        }
+
+    } catch (error) {
+        console.log("Reverse geolocation failed:", error);
+    }
+    
+
     const place = {
-        name: "My Location: reverse geolocation reading soon to be added" /*+ position.name*/,
+        name: placeName,
         latitude: position.coords.latitude,
         longitude: position.coords.longitude
     };

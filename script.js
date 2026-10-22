@@ -28,6 +28,7 @@ let favs = [];
 let metCelsius = [];
 let utcTime = 0;
 let chart = null;
+let isDay = 1;
 
 
 
@@ -49,13 +50,13 @@ async function citySearch() {
         return;
     }
 
-    const place = data.results[0]; //This is the best match for the city search
+    const place = data.results[0];
     weatherDisplay(place);
 
 }
 
 async function weatherDisplay(place) {
-    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m,weather_code&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto";
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude + "&current=temperature_2m,wind_speed_10m,weather_code,is_day&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto";
     const res = await fetch(url);
     const data = await res.json();
     console.log(data);
@@ -66,14 +67,13 @@ async function weatherDisplay(place) {
         currentWind = data.current.wind_speed_10m;
         currentName = place.name;
         currentWCode = data.current.weather_code;
+        isDay = data.current.is_day;
         utcTime = data.utc_offset_seconds;
 
         //hourly 
         hTimes = [];
         hCelsius = [];
-        hWCodes = [];
-        
-        //This loop fills in the two arrays with the timestamps with their temperature data accordingly. 
+        hWCodes = []; 
         for (let i = 0; i < data.hourly.time.length; i++) {
             if (data.hourly.time[i] > data.current.time && hTimes.length < 24) {
                 hTimes.push(data.hourly.time[i]);
@@ -89,6 +89,7 @@ async function weatherDisplay(place) {
         dWCodes = data.daily.weather_code;
         await loadMetNorway(place);
         showNow();
+        theme();
         showHourly();
         showDaily();
         showComp();
@@ -122,7 +123,7 @@ function tempConverter(celsius) {
         return celsius + 273.15; //calculation source: https://www.calculatorsoup.com/calculators/conversions/celsius-to-kelvin.php
     }
 
-    return celsius; //Base case where the temperature is Celsius by default.
+    return celsius;
 }
 
 function showNow() {
@@ -285,7 +286,7 @@ function drawChart() {
         if (metCelsius[i] != null) {
             metData.push(tempConverter(metCelsius[i]).toFixed(1));
         } else {
-            metData.push(0);
+            metData.push(omData[i]);
         }
     }
 
@@ -306,6 +307,23 @@ function drawChart() {
         axisOptions: {xIsSeries: true},
         lineOptions: {hideDots: 0}
     });
+}
+function theme() {
+    let hue = 220 - (currentCelsius+20) / 60*220;
+    if (hue < 0) hue = 0;
+    if (hue > 220) hue = 220;
+    let saturation = 40;
+    if (currentWCode <= 1) saturation = 70;
+    let color1, color2;
+    if (isDay === 1) {
+        color1 = "hsl(" + hue + ", " + saturation + "%, 55%)";
+        color2 = "hsl(" + (hue + 30) + ", " + saturation + "%, 35%)";
+    } else {
+        colour1 = "hsl(" + hue + ", 40%, 18%)";
+        colour2 = "hsl(" + hue + ", 50%, 8%)";
+    }
+    document.body.style.setProperty("--background1", color1);
+    document.body.style.setProperty("--background2", color2);
 }
 
 

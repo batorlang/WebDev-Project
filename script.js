@@ -9,6 +9,7 @@ const hourlySec = document.getElementById("hourly");
 const dailySec = document.getElementById("daily");
 const favSelector = document.getElementById("favorites");
 const favButton = document.getElementById("add_favorite");
+const compSec = document.getElementById("compare");
 
 //global variables
 let currentCelsius = null;
@@ -24,6 +25,8 @@ let dWCodes = [];
 let hWCodes = [];
 let currentPlace = null;
 let favs = [];
+let metCelsius = [];
+let utcTime = 0;
 
 
 
@@ -62,6 +65,7 @@ async function weatherDisplay(place) {
         currentWind = data.current.wind_speed_10m;
         currentName = place.name;
         currentWCode = data.current.weather_code;
+        utcTime = data.utc_offset_seconds;
 
         //hourly 
         hTimes = [];
@@ -82,9 +86,11 @@ async function weatherDisplay(place) {
         dMax = data.daily.temperature_2m_max;
         dMin = data.daily.temperature_2m_min;
         dWCodes = data.daily.weather_code;
+        await loadMetNorway(place);
         showNow();
         showHourly();
         showDaily();
+        showComp();
 }
 
 function useGPS() {
@@ -153,6 +159,7 @@ function changeUI() {
     showNow();
     showHourly();
     showDaily();
+    showComp();
 
 }
 
@@ -221,6 +228,47 @@ function addFavs() {
 
 function chooseFav() {
     weatherDisplay(favs[favSelector.value]);
+}
+
+async function loadMetNorway(place) {
+    metCelsius = [];
+    //bugfix: Met Norway API rejects coordinates over 4 decimals, toFixed had to be used
+    const url = "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=" + place.latitude.toFixed(4) + "&lon=" + place.longitude.toFixed(4);
+    const res = await fetch(url);
+    const data = await res.json();
+    const series = data.properties.timeseries;
+    console.log(data);
+    console.log(series);
+
+    //I need this lookup, to get hourly temperature, but MET Norway uses utc time intead of regional timezones
+    //I have used Claude's assistance in this function
+    const lookup = {};
+    for (let i = 0; i < series.length; i++) {
+        const period = Date.parse(series[i].time);
+        lookup[period] = series[i].data.instant.details.air_temperature;
+    }
+    for (let i = 0; i < hTimes.length; i++) {
+        const period = Date.parse(hTimes[i] + "Z") - utcTime * 1000;
+        if (lookup[period] != undefined) {
+            metCelsius.push(lookup[period]);
+        } else {
+            metCelsius.push(null);
+        }
+    }
+
+}
+
+function showComp() {
+    let content = "";
+    for (let i = 0; i < hTimes.length; i++) {
+        const omTemp = tempConverter(hCelsius[i]);
+        let metText = "no data arrived";
+        if (metCelsius[i] != null) {
+            metText = tempConverter(metCelsius[i]).toFixed(1) + " " + getLabels();
+        }
+        content += "<div>" + hTimes[i] + "Open-Meteo: " + omTemp.toFixed(1) + " " + getLabels() + "   MET Norway: " + metText + "</div>";
+    }
+    compSec.innerHTML = content;
 }
 
 

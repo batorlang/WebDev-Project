@@ -265,6 +265,7 @@ function addFavs() {
 }
 
 function chooseFav() {
+    if (favSelector.value === "") return;
     weatherDisplay(favs[favSelector.value]);
 }
 
